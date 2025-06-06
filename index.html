@@ -1,0 +1,1169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Text Comparer</title>
+    <style>
+        :root {
+            --bg-primary: #0f172a;
+            --bg-secondary: #1e293b;
+            --bg-tertiary: #334155;
+            --text-primary: #f8fafc;
+            --text-secondary: #cbd5e1;
+            --text-muted: #64748b;
+            --accent-primary: #3b82f6;
+            --accent-secondary: #1d4ed8;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --error: #ef4444;
+            --border: #475569;
+            --shadow: rgba(0, 0, 0, 0.25);
+            --font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            --font-size: 14px;
+            --line-height: 1.6;
+            --border-radius: 8px;
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        [data-theme="light"] {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f8fafc;
+            --bg-tertiary: #e2e8f0;
+            --text-primary: #1e293b;
+            --text-secondary: #475569;
+            --text-muted: #64748b;
+            --border: #cbd5e1;
+            --shadow: rgba(0, 0, 0, 0.1);
+        }
+
+        [data-theme="sepia"] {
+            --bg-primary: #f7f3e9;
+            --bg-secondary: #f0e6d2;
+            --bg-tertiary: #e8dcc0;
+            --text-primary: #5d4e37;
+            --text-secondary: #8b7355;
+            --text-muted: #a0956b;
+            --accent-primary: #8b4513;
+            --accent-secondary: #654321;
+            --border: #d2b48c;
+        }
+
+        [data-theme="cool"] {
+            --bg-primary: #0c1425;
+            --bg-secondary: #162035;
+            --bg-tertiary: #1f2937;
+            --text-primary: #e0f2fe;
+            --text-secondary: #b3e5fc;
+            --accent-primary: #00bcd4;
+            --accent-secondary: #0097a7;
+            --border: #37474f;
+        }
+
+        [data-theme="warm"] {
+            --bg-primary: #1a0f0a;
+            --bg-secondary: #2d1b12;
+            --bg-tertiary: #3d251a;
+            --text-primary: #fff5e6;
+            --text-secondary: #ffcc99;
+            --accent-primary: #ff6b35;
+            --accent-secondary: #e55a2b;
+            --border: #5d3a1a;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--font-family);
+            font-size: var(--font-size);
+            line-height: var(--line-height);
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            transition: var(--transition);
+            overflow-x: hidden;
+        }
+
+        .container {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--accent-primary);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .controls {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 0.5rem 1rem;
+            border: 1px solid var(--border);
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            transition: var(--transition);
+            font-size: 0.875rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            text-decoration: none;
+        }
+
+        .btn:hover {
+            background: var(--accent-primary);
+            border-color: var(--accent-primary);
+            transform: translateY(-1px);
+        }
+
+        .btn-primary {
+            background: var(--accent-primary);
+            border-color: var(--accent-primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--accent-secondary);
+            border-color: var(--accent-secondary);
+        }
+
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 2rem;
+            gap: 2rem;
+        }
+
+        .comparison-area {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            height: 500px;
+            flex: 1;
+        }
+
+        .highlight-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: var(--bg-secondary);
+            z-index: 10;
+            padding: 1rem;
+            overflow: auto;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: var(--font-size);
+            line-height: var(--line-height);
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+        }
+
+        .text-panel {
+            display: flex;
+            flex-direction: column;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--border-radius);
+            overflow: hidden;
+            position: relative;
+        }
+
+        .panel-header {
+            background: var(--bg-tertiary);
+            padding: 1rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .panel-title {
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .panel-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .text-area {
+            flex: 1;
+            padding: 1rem;
+            border: none;
+            background: transparent;
+            color: var(--text-primary);
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: var(--font-size);
+            line-height: var(--line-height);
+            resize: none;
+            outline: none;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .text-area::placeholder {
+            color: var(--text-muted);
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .stats-panel {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--border-radius);
+            padding: 1.5rem;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .stat-item {
+            text-align: center;
+            padding: 1rem;
+            background: var(--bg-tertiary);
+            border-radius: var(--border-radius);
+            transition: var(--transition);
+        }
+
+        .stat-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px var(--shadow);
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--accent-primary);
+            display: block;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-label {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+        }
+
+        .settings-panel {
+            position: fixed;
+            top: 0;
+            right: -400px;
+            width: 400px;
+            height: 100vh;
+            background: var(--bg-secondary);
+            border-left: 1px solid var(--border);
+            z-index: 200;
+            transition: var(--transition);
+            overflow-y: auto;
+        }
+
+        .settings-panel.open {
+            right: 0;
+        }
+
+        .settings-header {
+            padding: 2rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .settings-content {
+            padding: 2rem;
+        }
+
+        .setting-group {
+            margin-bottom: 2rem;
+        }
+
+        .setting-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .setting-control {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--border);
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border-radius: var(--border-radius);
+            font-size: 0.875rem;
+        }
+
+        .setting-control:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+        }
+
+        .mode-selector {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .mode-btn {
+            flex: 1;
+            padding: 0.5rem;
+            border: 1px solid var(--border);
+            background: var(--bg-tertiary);
+            color: var(--text-secondary);
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            transition: var(--transition);
+            text-align: center;
+            font-size: 0.875rem;
+        }
+
+        .mode-btn.active {
+            background: var(--accent-primary);
+            border-color: var(--accent-primary);
+            color: white;
+        }
+
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 150;
+            opacity: 0;
+            visibility: hidden;
+            transition: var(--transition);
+        }
+
+        .overlay.show {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .diff-line {
+            margin: 0;
+            padding: 0.25rem 0.5rem;
+            border-left: 3px solid transparent;
+        }
+
+        .diff-added {
+            background: rgba(16, 185, 129, 0.1);
+            border-left-color: var(--success);
+        }
+
+        .diff-removed {
+            background: rgba(239, 68, 68, 0.1);
+            border-left-color: var(--error);
+        }
+
+        .diff-modified {
+            background: rgba(245, 158, 11, 0.1);
+            border-left-color: var(--warning);
+        }
+
+        .fullscreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 300;
+            background: var(--bg-primary);
+        }
+
+        .fullscreen .main-content {
+            padding: 1rem;
+        }
+
+        .fullscreen .comparison-area {
+            height: calc(100vh - 2rem);
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            background: var(--success);
+            color: white;
+            padding: 1rem 1.5rem;
+            border-radius: var(--border-radius);
+            transform: translateY(100px);
+            opacity: 0;
+            transition: var(--transition);
+            z-index: 400;
+        }
+
+        .toast.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        @media (max-width: 768px) {
+            .header {
+                padding: 1rem;
+            }
+
+            .main-content {
+                padding: 1rem;
+                gap: 1rem;
+            }
+
+            .comparison-area {
+                grid-template-columns: 1fr;
+                height: auto;
+            }
+
+            .text-panel {
+                height: 300px;
+            }
+
+            .settings-panel {
+                width: 100%;
+                right: -100%;
+            }
+
+            .controls {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .stats-panel {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        .loading {
+            display: inline-block;
+            width: 1rem;
+            height: 1rem;
+            border: 2px solid var(--text-muted);
+            border-radius: 50%;
+            border-top-color: var(--accent-primary);
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 4px;
+            background: var(--bg-tertiary);
+            border-radius: 2px;
+            overflow: hidden;
+            margin-top: 1rem;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: var(--accent-primary);
+            transition: width 0.3s ease;
+            width: 0%;
+        }
+    </style>
+</head>
+<body data-theme="dark">
+    <div class="container">
+        <header class="header">
+            <div class="logo">
+                📝 Advanced Text Comparer
+            </div>
+            <div class="controls">
+                <div class="mode-selector">
+                    <button class="mode-btn active" data-mode="strict">Strict</button>
+                    <button class="mode-btn" data-mode="loose">Loose</button>
+                    <button class="mode-btn" data-mode="semantic">Semantic</button>
+                </div>
+                <button class="btn" id="compareBtn">🔍 Compare</button>
+                <button class="btn" id="clearBtn">🗑️ Clear</button>
+                <button class="btn" id="settingsBtn">⚙️ Settings</button>
+                <button class="btn" id="fullscreenBtn">⛶ Fullscreen</button>
+            </div>
+        </header>
+
+        <main class="main-content">
+            <div class="stats-panel">
+                <div class="stat-item">
+                    <span class="stat-value" id="similarityScore">0%</span>
+                    <span class="stat-label">Similarity</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-value" id="linesAdded">0</span>
+                    <span class="stat-label">Lines Added</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-value" id="linesRemoved">0</span>
+                    <span class="stat-label">Lines Removed</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-value" id="linesModified">0</span>
+                    <span class="stat-label">Lines Modified</span>
+                </div>
+            </div>
+
+            <div class="comparison-area">
+                <div class="text-panel">
+                    <div class="panel-header">
+                        <span class="panel-title">Original Text</span>
+                        <div class="panel-actions">
+                            <button class="btn" id="uploadLeft">📁 Upload</button>
+                            <button class="btn" id="pasteLeft">📋 Paste</button>
+                            <button class="btn" id="clearLeft">🗑️ Clear</button>
+                        </div>
+                    </div>
+                    <textarea class="text-area" id="leftText" placeholder="Enter or paste your original text here..."></textarea>
+                    <input type="file" class="file-input" id="leftFile" accept=".txt,.md,.js,.html,.css,.json,.xml,.csv">
+                </div>
+
+                <div class="text-panel">
+                    <div class="panel-header">
+                        <span class="panel-title">Comparison Text</span>
+                        <div class="panel-actions">
+                            <button class="btn" id="uploadRight">📁 Upload</button>
+                            <button class="btn" id="pasteRight">📋 Paste</button>
+                            <button class="btn" id="clearRight">🗑️ Clear</button>
+                        </div>
+                    </div>
+                    <textarea class="text-area" id="rightText" placeholder="Enter or paste your comparison text here..."></textarea>
+                    <input type="file" class="file-input" id="rightFile" accept=".txt,.md,.js,.html,.css,.json,.xml,.csv">
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div class="overlay" id="overlay"></div>
+
+    <div class="settings-panel" id="settingsPanel">
+        <div class="settings-header">
+            <h2>Settings</h2>
+            <button class="btn" id="closeSettings">✕</button>
+        </div>
+        <div class="settings-content">
+            <div class="setting-group">
+                <label class="setting-label">Theme</label>
+                <select class="setting-control" id="themeSelect">
+                    <option value="dark">Dark</option>
+                    <option value="light">Light</option>
+                    <option value="sepia">Sepia</option>
+                    <option value="cool">Cool</option>
+                    <option value="warm">Warm</option>
+                </select>
+            </div>
+
+            <div class="setting-group">
+                <label class="setting-label">Font Family</label>
+                <select class="setting-control" id="fontFamily">
+                    <option value="Inter">Inter</option>
+                    <option value="Monaco">Monaco</option>
+                    <option value="Menlo">Menlo</option>
+                    <option value="Consolas">Consolas</option>
+                    <option value="Courier New">Courier New</option>
+                </select>
+            </div>
+
+            <div class="setting-group">
+                <label class="setting-label">Font Size</label>
+                <input type="range" class="setting-control" id="fontSize" min="10" max="24" value="14">
+                <span id="fontSizeValue">14px</span>
+            </div>
+
+            <div class="setting-group">
+                <label class="setting-label">Line Height</label>
+                <input type="range" class="setting-control" id="lineHeight" min="1.2" max="2.0" step="0.1" value="1.6">
+                <span id="lineHeightValue">1.6</span>
+            </div>
+
+            <div class="setting-group">
+                <label class="setting-label">Custom Heading Color</label>
+                <input type="color" class="setting-control" id="headingColor" value="#3b82f6">
+            </div>
+
+            <div class="setting-group">
+                <label class="setting-label">Text Transformations</label>
+                <button class="btn" id="uppercaseBtn">UPPERCASE</button>
+                <button class="btn" id="lowercaseBtn">lowercase</button>
+                <button class="btn" id="capitalizeBtn">Capitalize</button>
+                <button class="btn" id="cleanTextBtn">Clean Text</button>
+            </div>
+
+            <div class="setting-group">
+                <button class="btn btn-primary" id="exportBtn">📤 Export Results</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+        class TextComparer {
+            constructor() {
+                this.currentMode = 'strict';
+                this.settings = this.loadSettings();
+                this.isFullscreen = false;
+                this.shouldShowHighlights = false;
+                this.init();
+            }
+
+            init() {
+                this.bindEvents();
+                this.applySettings();
+                this.setupScrollSync();
+            }
+
+            bindEvents() {
+                // Mode selection
+                document.querySelectorAll('.mode-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        document.querySelector('.mode-btn.active').classList.remove('active');
+                        e.target.classList.add('active');
+                        this.currentMode = e.target.dataset.mode;
+                        this.compare();
+                    });
+                });
+
+                // Main controls
+                document.getElementById('compareBtn').addEventListener('click', () => {
+                    this.shouldShowHighlights = true;
+                    this.compare();
+                });
+                document.getElementById('clearBtn').addEventListener('click', () => this.clearAll());
+                document.getElementById('settingsBtn').addEventListener('click', () => this.toggleSettings());
+                document.getElementById('fullscreenBtn').addEventListener('click', () => this.toggleFullscreen());
+
+                // File uploads
+                document.getElementById('uploadLeft').addEventListener('click', () => document.getElementById('leftFile').click());
+                document.getElementById('uploadRight').addEventListener('click', () => document.getElementById('rightFile').click());
+                document.getElementById('leftFile').addEventListener('change', (e) => this.handleFileUpload(e, 'left'));
+                document.getElementById('rightFile').addEventListener('change', (e) => this.handleFileUpload(e, 'right'));
+
+                // Text controls
+                document.getElementById('pasteLeft').addEventListener('click', () => this.pasteFromClipboard('left'));
+                document.getElementById('pasteRight').addEventListener('click', () => this.pasteFromClipboard('right'));
+                document.getElementById('clearLeft').addEventListener('click', () => this.clearText('left'));
+                document.getElementById('clearRight').addEventListener('click', () => this.clearText('right'));
+
+                // Settings
+                document.getElementById('closeSettings').addEventListener('click', () => this.toggleSettings());
+                document.getElementById('overlay').addEventListener('click', () => this.toggleSettings());
+                document.getElementById('themeSelect').addEventListener('change', (e) => this.changeTheme(e.target.value));
+                document.getElementById('fontFamily').addEventListener('change', (e) => this.changeFontFamily(e.target.value));
+                document.getElementById('fontSize').addEventListener('input', (e) => this.changeFontSize(e.target.value));
+                document.getElementById('lineHeight').addEventListener('input', (e) => this.changeLineHeight(e.target.value));
+                document.getElementById('headingColor').addEventListener('change', (e) => this.changeHeadingColor(e.target.value));
+
+                // Text transformations
+                document.getElementById('uppercaseBtn').addEventListener('click', () => this.transformText('uppercase'));
+                document.getElementById('lowercaseBtn').addEventListener('click', () => this.transformText('lowercase'));
+                document.getElementById('capitalizeBtn').addEventListener('click', () => this.transformText('capitalize'));
+                document.getElementById('cleanTextBtn').addEventListener('click', () => this.transformText('clean'));
+
+                // Export
+                document.getElementById('exportBtn').addEventListener('click', () => this.exportResults());
+
+                // Auto-compare on text change
+                document.getElementById('leftText').addEventListener('input', this.debounce(() => this.compare(), 500));
+                document.getElementById('rightText').addEventListener('input', this.debounce(() => this.compare(), 500));
+
+                // Keyboard shortcuts
+                document.addEventListener('keydown', (e) => {
+                    if (e.ctrlKey || e.metaKey) {
+                        if (e.key === 's') {
+                            e.preventDefault();
+                            this.toggleSettings();
+                        } else if (e.key === 'Enter') {
+                            e.preventDefault();
+                            this.compare();
+                        } else if (e.key === 'Escape') {
+                            if (this.isFullscreen) this.toggleFullscreen();
+                            if (document.getElementById('settingsPanel').classList.contains('open')) this.toggleSettings();
+                        }
+                    }
+                });
+            }
+
+            setupScrollSync() {
+                const leftText = document.getElementById('leftText');
+                const rightText = document.getElementById('rightText');
+                let isScrolling = false;
+
+                const syncScroll = this.debounce((source, target) => {
+                    if (isScrolling) return;
+                    isScrolling = true;
+                    const scrollRatio = source.scrollTop / (source.scrollHeight - source.clientHeight);
+                    target.scrollTop = scrollRatio * (target.scrollHeight - target.clientHeight);
+                    setTimeout(() => isScrolling = false, 50);
+                }, 10);
+
+                leftText.addEventListener('scroll', () => syncScroll(leftText, rightText));
+                rightText.addEventListener('scroll', () => syncScroll(rightText, leftText));
+            }
+
+            async handleFileUpload(event, side) {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const textArea = document.getElementById(side === 'left' ? 'leftText' : 'rightText');
+                    textArea.value = e.target.result;
+                    this.compare();
+                    this.showToast(`File "${file.name}" loaded successfully!`);
+                };
+                reader.onerror = () => this.showToast('Error reading file', 'error');
+                reader.readAsText(file);
+            }
+
+            async pasteFromClipboard(side) {
+                try {
+                    const text = await navigator.clipboard.readText();
+                    const textArea = document.getElementById(side === 'left' ? 'leftText' : 'rightText');
+                    textArea.value = text;
+                    this.compare();
+                    this.showToast('Text pasted from clipboard!');
+                } catch (err) {
+                    this.showToast('Failed to paste from clipboard', 'error');
+                }
+            }
+
+            clearText(side) {
+                const textArea = document.getElementById(side === 'left' ? 'leftText' : 'rightText');
+                textArea.value = '';
+                this.compare();
+            }
+
+            clearAll() {
+                document.getElementById('leftText').value = '';
+                document.getElementById('rightText').value = '';
+                this.updateStats(0, 0, 0, 0);
+                this.showToast('All text cleared!');
+            }
+
+            compare() {
+                const leftText = document.getElementById('leftText').value;
+                const rightText = document.getElementById('rightText').value;
+
+                if (!leftText && !rightText) {
+                    this.updateStats(0, 0, 0, 0);
+                    return;
+                }
+
+                const result = this.performComparison(leftText, rightText);
+                this.updateStats(result.similarity, result.added, result.removed, result.modified);
+                this.highlightDifferences(result.leftLines, result.rightLines);
+            }
+
+            performComparison(text1, text2) {
+                const lines1 = text1.split('\n');
+                const lines2 = text2.split('\n');
+
+                let added = 0, removed = 0, modified = 0;
+                const leftLines = [];
+                const rightLines = [];
+
+                const maxLength = Math.max(lines1.length, lines2.length);
+                let matchedLines = 0;
+
+                for (let i = 0; i < maxLength; i++) {
+                    const line1 = lines1[i] || '';
+                    const line2 = lines2[i] || '';
+
+                    if (line1 === line2) {
+                        leftLines.push({ text: line1, type: 'unchanged' });
+                        rightLines.push({ text: line2, type: 'unchanged' });
+                        if (line1 !== '') matchedLines++;
+                    } else if (line1 === '') {
+                        leftLines.push({ text: '', type: 'added' });
+                        rightLines.push({ text: line2, type: 'added' });
+                        added++;
+                    } else if (line2 === '') {
+                        leftLines.push({ text: line1, type: 'removed' });
+                        rightLines.push({ text: '', type: 'removed' });
+                        removed++;
+                    } else {
+                        if (this.isLinesSimilar(line1, line2)) {
+                            leftLines.push({ text: line1, type: 'modified' });
+                            rightLines.push({ text: line2, type: 'modified' });
+                            modified++;
+                        } else {
+                            leftLines.push({ text: line1, type: 'removed' });
+                            rightLines.push({ text: line2, type: 'added' });
+                            removed++;
+                            added++;
+                        }
+                    }
+                }
+
+                const totalLines = Math.max(lines1.length, lines2.length);
+                const similarity = totalLines > 0 ? Math.round((matchedLines / totalLines) * 100) : 0;
+
+                return { similarity, added, removed, modified, leftLines, rightLines };
+            }
+
+            isLinesSimilar(line1, line2) {
+                if (this.currentMode === 'strict') {
+                    return line1 === line2;
+                } else if (this.currentMode === 'loose') {
+                    return line1.trim().toLowerCase() === line2.trim().toLowerCase();
+                } else if (this.currentMode === 'semantic') {
+                    // Simple semantic comparison
+                    const words1 = line1.toLowerCase().match(/\b\w+\b/g) || [];
+                    const words2 = line2.toLowerCase().match(/\b\w+\b/g) || [];
+                    const intersection = words1.filter(word => words2.includes(word));
+                    const union = [...new Set([...words1, ...words2])];
+                    return union.length > 0 && (intersection.length / union.length) > 0.5;
+                }
+                return false;
+            }
+
+            highlightDifferences(leftLines, rightLines) {
+                // Remove any existing highlights first
+                this.removeHighlights();
+                
+                // Only show highlights when explicitly requested (not during auto-compare)
+                if (this.shouldShowHighlights && (leftLines.length > 0 || rightLines.length > 0)) {
+                    this.showHighlightedContent(leftLines, rightLines);
+                    this.shouldShowHighlights = false; // Reset flag
+                }
+            }
+
+            showHighlightedContent(leftLines, rightLines) {
+                const leftPanel = document.getElementById('leftText').parentElement;
+                const rightPanel = document.getElementById('rightText').parentElement;
+
+                // Create highlighted content
+                const leftContent = leftLines.map(line => {
+                    const className = line.type !== 'unchanged' ? `diff-${line.type}` : '';
+                    return `<div class="diff-line ${className}">${this.escapeHtml(line.text)}</div>`;
+                }).join('');
+
+                const rightContent = rightLines.map(line => {
+                    const className = line.type !== 'unchanged' ? `diff-${line.type}` : '';
+                    return `<div class="diff-line ${className}">${this.escapeHtml(line.text)}</div>`;
+                }).join('');
+
+                // Create overlay divs
+                const leftOverlay = document.createElement('div');
+                leftOverlay.className = 'highlight-overlay';
+                leftOverlay.innerHTML = leftContent;
+
+                const rightOverlay = document.createElement('div');
+                rightOverlay.className = 'highlight-overlay';
+                rightOverlay.innerHTML = rightContent;
+
+                // Add overlays
+                leftPanel.appendChild(leftOverlay);
+                rightPanel.appendChild(rightOverlay);
+
+                // Auto-remove after 2 seconds
+                setTimeout(() => {
+                    this.removeHighlights();
+                }, 2000);
+
+                // Click to dismiss
+                [leftOverlay, rightOverlay].forEach(overlay => {
+                    overlay.addEventListener('click', () => {
+                        this.removeHighlights();
+                    });
+                });
+            }
+
+            removeHighlights() {
+                document.querySelectorAll('.highlight-overlay').forEach(overlay => {
+                    overlay.remove();
+                });
+            }
+
+            updateStats(similarity, added, removed, modified) {
+                document.getElementById('similarityScore').textContent = `${similarity}%`;
+                document.getElementById('linesAdded').textContent = added;
+                document.getElementById('linesRemoved').textContent = removed;
+                document.getElementById('linesModified').textContent = modified;
+            }
+
+            transformText(type) {
+                const leftText = document.getElementById('leftText');
+                const rightText = document.getElementById('rightText');
+
+                [leftText, rightText].forEach(textarea => {
+                    if (textarea.value) {
+                        switch (type) {
+                            case 'uppercase':
+                                textarea.value = textarea.value.toUpperCase();
+                                break;
+                            case 'lowercase':
+                                textarea.value = textarea.value.toLowerCase();
+                                break;
+                            case 'capitalize':
+                                textarea.value = textarea.value.replace(/\b\w/g, l => l.toUpperCase());
+                                break;
+                            case 'clean':
+                                textarea.value = textarea.value
+                                    .replace(/[^\w\s\n\r\t.,!?;:'"()-]/g, '')
+                                    .replace(/\s+/g, ' ')
+                                    .trim();
+                                break;
+                        }
+                    }
+                });
+
+                this.compare();
+                this.showToast(`Text transformed: ${type}`);
+            }
+
+            toggleSettings() {
+                const panel = document.getElementById('settingsPanel');
+                const overlay = document.getElementById('overlay');
+                
+                if (panel.classList.contains('open')) {
+                    panel.classList.remove('open');
+                    overlay.classList.remove('show');
+                } else {
+                    panel.classList.add('open');
+                    overlay.classList.add('show');
+                }
+            }
+
+            toggleFullscreen() {
+                const container = document.querySelector('.container');
+                
+                if (this.isFullscreen) {
+                    container.classList.remove('fullscreen');
+                    document.getElementById('fullscreenBtn').innerHTML = '⛶ Fullscreen';
+                    this.isFullscreen = false;
+                } else {
+                    container.classList.add('fullscreen');
+                    document.getElementById('fullscreenBtn').innerHTML = '⛶ Exit Fullscreen';
+                    this.isFullscreen = true;
+                }
+            }
+
+            changeTheme(theme) {
+                document.body.setAttribute('data-theme', theme);
+                this.settings.theme = theme;
+                this.saveSettings();
+                this.showToast(`Theme changed to ${theme}`);
+            }
+
+            changeFontFamily(fontFamily) {
+                document.documentElement.style.setProperty('--font-family', fontFamily);
+                this.settings.fontFamily = fontFamily;
+                this.saveSettings();
+            }
+
+            changeFontSize(size) {
+                document.documentElement.style.setProperty('--font-size', `${size}px`);
+                document.getElementById('fontSizeValue').textContent = `${size}px`;
+                this.settings.fontSize = size;
+                this.saveSettings();
+            }
+
+            changeLineHeight(height) {
+                document.documentElement.style.setProperty('--line-height', height);
+                document.getElementById('lineHeightValue').textContent = height;
+                this.settings.lineHeight = height;
+                this.saveSettings();
+            }
+
+            changeHeadingColor(color) {
+                document.documentElement.style.setProperty('--accent-primary', color);
+                this.settings.headingColor = color;
+                this.saveSettings();
+            }
+
+            exportResults() {
+                const leftText = document.getElementById('leftText').value;
+                const rightText = document.getElementById('rightText').value;
+                const similarity = document.getElementById('similarityScore').textContent;
+                const added = document.getElementById('linesAdded').textContent;
+                const removed = document.getElementById('linesRemoved').textContent;
+                const modified = document.getElementById('linesModified').textContent;
+
+                const results = {
+                    timestamp: new Date().toISOString(),
+                    mode: this.currentMode,
+                    statistics: {
+                        similarity,
+                        linesAdded: added,
+                        linesRemoved: removed,
+                        linesModified: modified
+                    },
+                    originalText: leftText,
+                    comparisonText: rightText
+                };
+
+                const blob = new Blob([JSON.stringify(results, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `text-comparison-${Date.now()}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+
+                this.showToast('Results exported successfully!');
+            }
+
+            loadSettings() {
+                const defaultSettings = {
+                    theme: 'dark',
+                    fontFamily: 'Inter',
+                    fontSize: '14',
+                    lineHeight: '1.6',
+                    headingColor: '#3b82f6'
+                };
+
+                try {
+                    const saved = JSON.parse(localStorage.getItem('textComparerSettings') || '{}');
+                    return { ...defaultSettings, ...saved };
+                } catch {
+                    return defaultSettings;
+                }
+            }
+
+            saveSettings() {
+                try {
+                    localStorage.setItem('textComparerSettings', JSON.stringify(this.settings));
+                } catch (error) {
+                    console.warn('Could not save settings to localStorage:', error);
+                }
+            }
+
+            applySettings() {
+                // Apply theme
+                document.body.setAttribute('data-theme', this.settings.theme);
+                document.getElementById('themeSelect').value = this.settings.theme;
+
+                // Apply font settings
+                document.documentElement.style.setProperty('--font-family', this.settings.fontFamily);
+                document.getElementById('fontFamily').value = this.settings.fontFamily;
+
+                document.documentElement.style.setProperty('--font-size', `${this.settings.fontSize}px`);
+                document.getElementById('fontSize').value = this.settings.fontSize;
+                document.getElementById('fontSizeValue').textContent = `${this.settings.fontSize}px`;
+
+                document.documentElement.style.setProperty('--line-height', this.settings.lineHeight);
+                document.getElementById('lineHeight').value = this.settings.lineHeight;
+                document.getElementById('lineHeightValue').textContent = this.settings.lineHeight;
+
+                // Apply custom colors
+                document.documentElement.style.setProperty('--accent-primary', this.settings.headingColor);
+                document.getElementById('headingColor').value = this.settings.headingColor;
+            }
+
+            showToast(message, type = 'success') {
+                const toast = document.getElementById('toast');
+                toast.textContent = message;
+                toast.className = `toast ${type}`;
+                toast.classList.add('show');
+
+                setTimeout(() => {
+                    toast.classList.remove('show');
+                }, 3000);
+            }
+
+            escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+
+            debounce(func, wait) {
+                let timeout;
+                return function executedFunction(...args) {
+                    const later = () => {
+                        clearTimeout(timeout);
+                        func(...args);
+                    };
+                    clearTimeout(timeout);
+                    timeout = setTimeout(later, wait);
+                };
+            }
+        }
+
+        // Initialize the application
+        let textComparer;
+        document.addEventListener('DOMContentLoaded', () => {
+            textComparer = new TextComparer();
+
+            // Add sample text
+            const leftSample = `Welcome to Advanced Text Comparer
+This is a powerful tool for comparing text documents.
+It supports multiple comparison modes:
+- Strict comparison
+- Loose comparison
+- Semantic comparison
+
+Features include:
+• File upload support
+• Real-time comparison
+• Export functionality
+• Custom themes and fonts
+• Synchronized scrolling`;
+
+            const rightSample = `Welcome to Advanced Text Comparer
+This is a powerful tool for comparing text documents.
+It supports multiple comparison modes:
+- Strict comparison
+- Loose comparison  
+- Semantic comparison
+
+Features include:
+• File upload support
+• Real-time text comparison
+• Export functionality
+• Custom themes and fonts
+• Synchronized scrolling
+• Additional features`;
+
+            setTimeout(() => {
+                document.getElementById('leftText').value = leftSample;
+                document.getElementById('rightText').value = rightSample;
+                textComparer.compare();
+            }, 500);
+        });
+    </script>
+</body>
+</html>
