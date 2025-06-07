@@ -420,23 +420,59 @@
             height: calc(100vh - 2rem);
         }
 
-        .toast {
+        /* Add reading mode styles */
+        .reading-mode {
             position: fixed;
-            bottom: 2rem;
-            right: 2rem;
-            background: var(--success);
-            color: white;
-            padding: 1rem 1.5rem;
-            border-radius: var(--border-radius);
-            transform: translateY(100px);
-            opacity: 0;
-            transition: var(--transition);
-            z-index: 400;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100vh;
+            background: var(--bg-primary);
+            z-index: 500;
+            padding: 1rem;
         }
 
-        .toast.show {
-            transform: translateY(0);
+        .reading-mode .comparison-area {
+            height: calc(100vh - 2rem);
+        }
+
+        .reading-mode .text-panel {
+            background: var(--bg-primary);
+            border: none;
+        }
+
+        .reading-mode .panel-header {
+            display: none;
+        }
+
+        .reading-mode .text-area {
+            font-size: 1.2em;
+            padding: 2rem;
+        }
+
+        .exit-reading {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            z-index: 501;
+            background: var(--bg-tertiary);
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: var(--border-radius);
+            color: var(--text-primary);
+            cursor: pointer;
+            opacity: 0.3;
+            transition: opacity 0.3s;
+        }
+
+        .exit-reading:hover {
             opacity: 1;
+        }
+
+        /* Hide everything except comparison area in reading mode */
+        .reading-mode .header,
+        .reading-mode .stats-panel {
+            display: none;
         }
 
         @media (max-width: 768px) {
@@ -520,6 +556,7 @@
                 <button class="btn" id="clearBtn">🗑️ Clear</button>
                 <button class="btn" id="settingsBtn">⚙️ Settings</button>
                 <button class="btn" id="fullscreenBtn">⛶ Fullscreen</button>
+                <button class="btn" id="readingModeBtn">📖 Reading Mode</button>
             </div>
         </header>
 
@@ -640,10 +677,82 @@
         class TextComparer {
             constructor() {
                 this.currentMode = 'strict';
-                this.settings = this.loadSettings();
                 this.isFullscreen = false;
+                this.isReadingMode = false;
                 this.shouldShowHighlights = false;
                 this.init();
+            }
+
+            loadSettings() {
+                const defaultSettings = {
+                    theme: 'dark',
+                    fontFamily: 'Inter',
+                    fontSize: '14',
+                    lineHeight: '1.6',
+                    headingColor: '#3b82f6'
+                };
+                try {
+                    const saved = localStorage.getItem('textComparerSettings');
+                    return saved ? JSON.parse(saved) : defaultSettings;
+                } catch {
+                    return defaultSettings;
+                }
+            }
+
+            saveSettings() {
+                try {
+                    localStorage.setItem('textComparerSettings', JSON.stringify(this.settings));
+                } catch (error) {
+                    console.warn('Could not save settings:', error);
+                }
+            }
+
+            changeTheme(theme) {
+                document.body.setAttribute('data-theme', theme);
+                this.settings.theme = theme;
+                this.saveSettings();
+            }
+
+            changeFontFamily(family) {
+                document.documentElement.style.setProperty('--font-family', family);
+                this.settings.fontFamily = family;
+                this.saveSettings();
+            }
+
+            changeFontSize(size) {
+                document.documentElement.style.setProperty('--font-size', `${size}px`);
+                document.getElementById('fontSizeValue').textContent = `${size}px`;
+                this.settings.fontSize = size;
+                this.saveSettings();
+            }
+
+            changeLineHeight(height) {
+                document.documentElement.style.setProperty('--line-height', height);
+                document.getElementById('lineHeightValue').textContent = height;
+                this.settings.lineHeight = height;
+                this.saveSettings();
+            }
+
+            changeHeadingColor(color) {
+                document.documentElement.style.setProperty('--accent-primary', color);
+                this.settings.headingColor = color;
+                this.saveSettings();
+            }
+
+            applySettings() {
+                this.settings = this.loadSettings();
+                this.changeTheme(this.settings.theme);
+                this.changeFontFamily(this.settings.fontFamily);
+                this.changeFontSize(this.settings.fontSize);
+                this.changeLineHeight(this.settings.lineHeight);
+                this.changeHeadingColor(this.settings.headingColor);
+                
+                // Update settings panel values
+                document.getElementById('themeSelect').value = this.settings.theme;
+                document.getElementById('fontFamily').value = this.settings.fontFamily;
+                document.getElementById('fontSize').value = this.settings.fontSize;
+                document.getElementById('lineHeight').value = this.settings.lineHeight;
+                document.getElementById('headingColor').value = this.settings.headingColor;
             }
 
             init() {
@@ -653,6 +762,64 @@
             }
 
             bindEvents() {
+                // Remove any existing event listeners first
+                this.removeEventListeners();
+                
+                // Settings panel toggling
+                document.getElementById('settingsBtn').addEventListener('click', () => {
+                    const panel = document.getElementById('settingsPanel');
+                    const overlay = document.getElementById('overlay');
+                    panel.classList.toggle('open');
+                    overlay.classList.toggle('show');
+                });
+
+                document.getElementById('closeSettings').addEventListener('click', () => {
+                    const panel = document.getElementById('settingsPanel');
+                    const overlay = document.getElementById('overlay');
+                    panel.classList.remove('open');
+                    overlay.classList.remove('show');
+                });
+
+                document.getElementById('overlay').addEventListener('click', () => {
+                    const panel = document.getElementById('settingsPanel');
+                    const overlay = document.getElementById('overlay');
+                    panel.classList.remove('open');
+                    overlay.classList.remove('show');
+                });
+
+                // Clear functionality
+                document.getElementById('clearBtn').addEventListener('click', () => {
+                    document.getElementById('leftText').value = '';
+                    document.getElementById('rightText').value = '';
+                    this.updateStats(0, 0, 0, 0);
+                    this.showToast('All text cleared!');
+                });
+
+                // Export button
+                document.getElementById('exportBtn').addEventListener('click', () => this.exportResults());
+
+                document.getElementById('themeSelect').addEventListener('change', (e) => this.changeTheme(e.target.value));
+                document.getElementById('fontFamily').addEventListener('change', (e) => this.changeFontFamily(e.target.value));
+                document.getElementById('fontSize').addEventListener('input', (e) => this.changeFontSize(e.target.value));
+                document.getElementById('lineHeight').addEventListener('input', (e) => this.changeLineHeight(e.target.value));
+                document.getElementById('headingColor').addEventListener('change', (e) => this.changeHeadingColor(e.target.value));
+                document.getElementById('settingsBtn').addEventListener('click', () => this.toggleSettings());
+                document.getElementById('closeSettings').addEventListener('click', () => this.toggleSettings());
+                document.getElementById('overlay').addEventListener('click', () => this.toggleSettings());
+                
+                // Other controls
+                document.getElementById('readingModeBtn').addEventListener('click', () => this.toggleReadingMode());
+                document.getElementById('fullscreenBtn').addEventListener('click', () => this.toggleFullscreen());
+                document.getElementById('compareBtn').addEventListener('click', () => {
+                    this.shouldShowHighlights = true;
+                    this.compare();
+                });
+
+                // Auto-compare on text change
+                ['leftText', 'rightText'].forEach(id => {
+                    document.getElementById(id).addEventListener('input', this.debounce(() => this.compare(), 500));
+                });
+
                 // Mode selection
                 document.querySelectorAll('.mode-btn').forEach(btn => {
                     btn.addEventListener('click', (e) => {
@@ -662,15 +829,6 @@
                         this.compare();
                     });
                 });
-
-                // Main controls
-                document.getElementById('compareBtn').addEventListener('click', () => {
-                    this.shouldShowHighlights = true;
-                    this.compare();
-                });
-                document.getElementById('clearBtn').addEventListener('click', () => this.clearAll());
-                document.getElementById('settingsBtn').addEventListener('click', () => this.toggleSettings());
-                document.getElementById('fullscreenBtn').addEventListener('click', () => this.toggleFullscreen());
 
                 // File uploads
                 document.getElementById('uploadLeft').addEventListener('click', () => document.getElementById('leftFile').click());
@@ -702,10 +860,6 @@
                 // Export
                 document.getElementById('exportBtn').addEventListener('click', () => this.exportResults());
 
-                // Auto-compare on text change
-                document.getElementById('leftText').addEventListener('input', this.debounce(() => this.compare(), 500));
-                document.getElementById('rightText').addEventListener('input', this.debounce(() => this.compare(), 500));
-
                 // Keyboard shortcuts
                 document.addEventListener('keydown', (e) => {
                     if (e.ctrlKey || e.metaKey) {
@@ -719,6 +873,21 @@
                             if (this.isFullscreen) this.toggleFullscreen();
                             if (document.getElementById('settingsPanel').classList.contains('open')) this.toggleSettings();
                         }
+                    }
+                });
+            }
+
+            removeEventListeners() {
+                const elements = [
+                    'settingsBtn', 'closeSettings', 'overlay',
+                    'clearBtn', 'leftText', 'rightText'
+                ];
+                
+                elements.forEach(id => {
+                    const element = document.getElementById(id);
+                    if (element) {
+                        const clone = element.cloneNode(true);
+                        element.parentNode.replaceChild(clone, element);
                     }
                 });
             }
@@ -952,16 +1121,35 @@
                 this.showToast(`Text transformed: ${type}`);
             }
 
-            toggleSettings() {
-                const panel = document.getElementById('settingsPanel');
-                const overlay = document.getElementById('overlay');
-                
-                if (panel.classList.contains('open')) {
-                    panel.classList.remove('open');
-                    overlay.classList.remove('show');
-                } else {
-                    panel.classList.add('open');
-                    overlay.classList.add('show');
+            exportResults() {
+                try {
+                    const results = {
+                        timestamp: new Date().toISOString(),
+                        settings: this.settings,
+                        comparison: {
+                            leftText: document.getElementById('leftText').value,
+                            rightText: document.getElementById('rightText').value,
+                            similarity: document.getElementById('similarityScore').textContent,
+                            added: document.getElementById('linesAdded').textContent,
+                            removed: document.getElementById('linesRemoved').textContent,
+                            modified: document.getElementById('linesModified').textContent,
+                            mode: this.currentMode
+                        }
+                    };
+
+                    const blob = new Blob([JSON.stringify(results, null, 2)], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `text-comparison-${Date.now()}.json`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                    this.showToast('Results exported successfully!');
+                } catch (error) {
+                    this.showToast('Failed to export results', 'error');
+                    console.error('Export error:', error);
                 }
             }
 
@@ -979,118 +1167,177 @@
                 }
             }
 
-            changeTheme(theme) {
-                document.body.setAttribute('data-theme', theme);
-                this.settings.theme = theme;
-                this.saveSettings();
-                this.showToast(`Theme changed to ${theme}`);
+            toggleReadingMode() {
+                const container = document.querySelector('.container');
+                const comparisonArea = document.querySelector('.comparison-area').cloneNode(true);
+                
+                if (!this.isReadingMode) {
+                    // Enter reading mode
+                    const readingModeDiv = document.createElement('div');
+                    readingModeDiv.className = 'reading-mode';
+                    readingModeDiv.appendChild(comparisonArea);
+
+                    const exitButton = document.createElement('button');
+                    exitButton.className = 'exit-reading';
+                    exitButton.innerHTML = '✕ Exit Reading Mode';
+                    exitButton.onclick = () => this.toggleReadingMode();
+
+                    document.body.appendChild(readingModeDiv);
+                    document.body.appendChild(exitButton);
+                    this.isReadingMode = true;
+
+                    // Reinitialize text areas for scroll sync
+                    const leftText = readingModeDiv.querySelector('#leftText');
+                    const rightText = readingModeDiv.querySelector('#rightText');
+                    this.setupReadingModeScrollSync(leftText, rightText);
+                } else {
+                    // Exit reading mode
+                    document.querySelector('.reading-mode').remove();
+                    document.querySelector('.exit-reading').remove();
+                    this.isReadingMode = false;
+                }
             }
 
-            changeFontFamily(fontFamily) {
-                document.documentElement.style.setProperty('--font-family', fontFamily);
-                this.settings.fontFamily = fontFamily;
-                this.saveSettings();
+            setupReadingModeScrollSync(leftText, rightText) {
+                let isScrolling = false;
+                const syncScroll = this.debounce((source, target) => {
+                    if (isScrolling) return;
+                    isScrolling = true;
+                    const scrollRatio = source.scrollTop / (source.scrollHeight - source.clientHeight);
+                    target.scrollTop = scrollRatio * (target.scrollHeight - target.clientHeight);
+                    setTimeout(() => isScrolling = false, 50);
+                }, 10);
+
+                leftText.addEventListener('scroll', () => syncScroll(leftText, rightText));
+                rightText.addEventListener('scroll', () => syncScroll(rightText, leftText));
             }
 
-            changeFontSize(size) {
-                document.documentElement.style.setProperty('--font-size', `${size}px`);
-                document.getElementById('fontSizeValue').textContent = `${size}px`;
-                this.settings.fontSize = size;
-                this.saveSettings();
+            async handleFileUpload(event, side) {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const textArea = document.getElementById(side === 'left' ? 'leftText' : 'rightText');
+                    textArea.value = e.target.result;
+                    this.compare();
+                    this.showToast(`File "${file.name}" loaded successfully!`);
+                };
+                reader.onerror = () => this.showToast('Error reading file', 'error');
+                reader.readAsText(file);
             }
 
-            changeLineHeight(height) {
-                document.documentElement.style.setProperty('--line-height', height);
-                document.getElementById('lineHeightValue').textContent = height;
-                this.settings.lineHeight = height;
-                this.saveSettings();
+            async pasteFromClipboard(side) {
+                try {
+                    const text = await navigator.clipboard.readText();
+                    const textArea = document.getElementById(side === 'left' ? 'leftText' : 'rightText');
+                    textArea.value = text;
+                    this.compare();
+                    this.showToast('Text pasted from clipboard!');
+                } catch (err) {
+                    this.showToast('Failed to paste from clipboard', 'error');
+                }
             }
 
-            changeHeadingColor(color) {
-                document.documentElement.style.setProperty('--accent-primary', color);
-                this.settings.headingColor = color;
-                this.saveSettings();
+            clearText(side) {
+                const textArea = document.getElementById(side === 'left' ? 'leftText' : 'rightText');
+                textArea.value = '';
+                this.compare();
             }
 
-            exportResults() {
+            clearAll() {
+                document.getElementById('leftText').value = '';
+                document.getElementById('rightText').value = '';
+                this.updateStats(0, 0, 0, 0);
+                this.showToast('All text cleared!');
+            }
+
+            compare() {
                 const leftText = document.getElementById('leftText').value;
                 const rightText = document.getElementById('rightText').value;
-                const similarity = document.getElementById('similarityScore').textContent;
-                const added = document.getElementById('linesAdded').textContent;
-                const removed = document.getElementById('linesRemoved').textContent;
-                const modified = document.getElementById('linesModified').textContent;
 
-                const results = {
-                    timestamp: new Date().toISOString(),
-                    mode: this.currentMode,
-                    statistics: {
-                        similarity,
-                        linesAdded: added,
-                        linesRemoved: removed,
-                        linesModified: modified
-                    },
-                    originalText: leftText,
-                    comparisonText: rightText
-                };
-
-                const blob = new Blob([JSON.stringify(results, null, 2)], { type: 'application/json' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `text-comparison-${Date.now()}.json`;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-
-                this.showToast('Results exported successfully!');
-            }
-
-            loadSettings() {
-                const defaultSettings = {
-                    theme: 'dark',
-                    fontFamily: 'Inter',
-                    fontSize: '14',
-                    lineHeight: '1.6',
-                    headingColor: '#3b82f6'
-                };
-
-                try {
-                    const saved = JSON.parse(localStorage.getItem('textComparerSettings') || '{}');
-                    return { ...defaultSettings, ...saved };
-                } catch {
-                    return defaultSettings;
+                if (!leftText && !rightText) {
+                    this.updateStats(0, 0, 0, 0);
+                    return;
                 }
+
+                const result = this.performComparison(leftText, rightText);
+                this.updateStats(result.similarity, result.added, result.removed, result.modified);
+                this.highlightDifferences(result.leftLines, result.rightLines);
             }
 
-            saveSettings() {
-                try {
-                    localStorage.setItem('textComparerSettings', JSON.stringify(this.settings));
-                } catch (error) {
-                    console.warn('Could not save settings to localStorage:', error);
+            performComparison(text1, text2) {
+                const lines1 = text1.split('\n');
+                const lines2 = text2.split('\n');
+
+                let added = 0, removed = 0, modified = 0;
+                const leftLines = [];
+                const rightLines = [];
+
+                const maxLength = Math.max(lines1.length, lines2.length);
+                let matchedLines = 0;
+
+                for (let i = 0; i < maxLength; i++) {
+                    const line1 = lines1[i] || '';
+                    const line2 = lines2[i] || '';
+
+                    if (line1 === line2) {
+                        leftLines.push({ text: line1, type: 'unchanged' });
+                        rightLines.push({ text: line2, type: 'unchanged' });
+                        if (line1 !== '') matchedLines++;
+                    } else if (line1 === '') {
+                        leftLines.push({ text: '', type: 'added' });
+                        rightLines.push({ text: line2, type: 'added' });
+                        added++;
+                    } else if (line2 === '') {
+                        leftLines.push({ text: line1, type: 'removed' });
+                        rightLines.push({ text: '', type: 'removed' });
+                        removed++;
+                    } else {
+                        if (this.isLinesSimilar(line1, line2)) {
+                            leftLines.push({ text: line1, type: 'modified' });
+                            rightLines.push({ text: line2, type: 'modified' });
+                            modified++;
+                        } else {
+                            leftLines.push({ text: line1, type: 'removed' });
+                            rightLines.push({ text: line2, type: 'added' });
+                            removed++;
+                            added++;
+                        }
+                    }
                 }
+
+                const totalLines = Math.max(lines1.length, lines2.length);
+                const similarity = totalLines > 0 ? Math.round((matchedLines / totalLines) * 100) : 0;
+
+                return { similarity, added, removed, modified, leftLines, rightLines };
             }
 
-            applySettings() {
-                // Apply theme
-                document.body.setAttribute('data-theme', this.settings.theme);
-                document.getElementById('themeSelect').value = this.settings.theme;
+            isLinesSimilar(line1, line2) {
+                if (this.currentMode === 'strict') {
+                    return line1 === line2;
+                } else if (this.currentMode === 'loose') {
+                    return line1.trim().toLowerCase() === line2.trim().toLowerCase();
+                } else if (this.currentMode === 'semantic') {
+                    // Simple semantic comparison
+                    const words1 = line1.toLowerCase().match(/\b\w+\b/g) || [];
+                    const words2 = line2.toLowerCase().match(/\b\w+\b/g) || [];
+                    const intersection = words1.filter(word => words2.includes(word));
+                    const union = [...new Set([...words1, ...words2])];
+                    return union.length > 0 && (intersection.length / union.length) > 0.5;
+                }
+                return false;
+            }
 
-                // Apply font settings
-                document.documentElement.style.setProperty('--font-family', this.settings.fontFamily);
-                document.getElementById('fontFamily').value = this.settings.fontFamily;
-
-                document.documentElement.style.setProperty('--font-size', `${this.settings.fontSize}px`);
-                document.getElementById('fontSize').value = this.settings.fontSize;
-                document.getElementById('fontSizeValue').textContent = `${this.settings.fontSize}px`;
-
-                document.documentElement.style.setProperty('--line-height', this.settings.lineHeight);
-                document.getElementById('lineHeight').value = this.settings.lineHeight;
-                document.getElementById('lineHeightValue').textContent = this.settings.lineHeight;
-
-                // Apply custom colors
-                document.documentElement.style.setProperty('--accent-primary', this.settings.headingColor);
-                document.getElementById('headingColor').value = this.settings.headingColor;
+            highlightDifferences(leftLines, rightLines) {
+                // Remove any existing highlights first
+                this.removeHighlights();
+                
+                // Only show highlights when explicitly requested (not during auto-compare)
+                if (this.shouldShowHighlights && (leftLines.length > 0 || rightLines.length > 0)) {
+                    this.showHighlightedContent(leftLines, rightLines);
+                    this.shouldShowHighlights = false; // Reset flag
+                }
             }
 
             showToast(message, type = 'success') {
@@ -1124,45 +1371,8 @@
         }
 
         // Initialize the application
-        let textComparer;
         document.addEventListener('DOMContentLoaded', () => {
-            textComparer = new TextComparer();
-
-            // Add sample text
-            const leftSample = `Welcome to Advanced Text Comparer
-This is a powerful tool for comparing text documents.
-It supports multiple comparison modes:
-- Strict comparison
-- Loose comparison
-- Semantic comparison
-
-Features include:
-• File upload support
-• Real-time comparison
-• Export functionality
-• Custom themes and fonts
-• Synchronized scrolling`;
-
-            const rightSample = `Welcome to Advanced Text Comparer
-This is a powerful tool for comparing text documents.
-It supports multiple comparison modes:
-- Strict comparison
-- Loose comparison  
-- Semantic comparison
-
-Features include:
-• File upload support
-• Real-time text comparison
-• Export functionality
-• Custom themes and fonts
-• Synchronized scrolling
-• Additional features`;
-
-            setTimeout(() => {
-                document.getElementById('leftText').value = leftSample;
-                document.getElementById('rightText').value = rightSample;
-                textComparer.compare();
-            }, 500);
+            window.textComparer = new TextComparer();
         });
     </script>
 </body>
